@@ -4,6 +4,18 @@ provider "google" {
   zone    = var.zone
 }
 
+resource "google_compute_network" "vpc_network" {
+  name                    = "apache-vpc"
+  auto_create_subnetworks = false
+}
+
+resource "google_compute_subnetwork" "subnet" {
+  name          = "apache-subnet"
+  ip_cidr_range = "10.0.0.0/24"
+  region        = var.region
+  network       = google_compute_network.vpc_network.id
+}
+
 resource "google_compute_instance" "apache" {
   name         = "apache-webserver"
   machine_type = "e2-micro"
@@ -16,7 +28,8 @@ resource "google_compute_instance" "apache" {
   }
 
   network_interface {
-    network = "default"
+    network    = google_compute_network.vpc_network.id
+    subnetwork = google_compute_subnetwork.subnet.id
     access_config {}
   }
 
@@ -33,7 +46,7 @@ resource "google_compute_instance" "apache" {
 
 resource "google_compute_firewall" "default" {
   name    = "allow-http"
-  network = "default"
+  network = google_compute_network.vpc_network.id
 
   allow {
     protocol = "tcp"
