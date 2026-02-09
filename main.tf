@@ -5,25 +5,25 @@ provider "google" {
 }
 
 resource "google_compute_network" "vpc_network" {
-  name                    = "apache-vpc"
+  name                    = "apache-vpc-v2"
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "subnet" {
-  name          = "apache-subnet"
+  name          = "apache-subnet-v2"
   ip_cidr_range = "10.0.0.0/24"
   region        = var.region
   network       = google_compute_network.vpc_network.id
 }
 
 resource "google_compute_router" "router" {
-  name    = "apache-router"
+  name    = "apache-router-v2"
   network = google_compute_network.vpc_network.id
   region  = var.region
 }
 
 resource "google_compute_router_nat" "nat" {
-  name                               = "apache-nat"
+  name                               = "apache-nat-v2"
   router                             = google_compute_router.router.name
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
@@ -31,7 +31,7 @@ resource "google_compute_router_nat" "nat" {
 }
 
 resource "google_compute_instance" "apache" {
-  name         = "apache-webserver"
+  name         = "apache-webserver-v2"
   machine_type = "e2-micro"
   zone         = var.zone
 
@@ -59,7 +59,7 @@ resource "google_compute_instance" "apache" {
 }
 
 resource "google_compute_firewall" "allow_http" {
-  name    = "allow-http"
+  name    = "allow-http-v2"
   network = google_compute_network.vpc_network.id
 
   allow {
@@ -72,7 +72,7 @@ resource "google_compute_firewall" "allow_http" {
 }
 
 resource "google_compute_firewall" "allow_health_check" {
-  name    = "allow-health-check"
+  name    = "allow-health-check-v2"
   network = google_compute_network.vpc_network.id
 
   allow {
@@ -85,11 +85,11 @@ resource "google_compute_firewall" "allow_health_check" {
 }
 
 resource "google_compute_global_address" "default" {
-  name = "apache-lb-ip"
+  name = "apache-lb-ip-v2"
 }
 
 resource "google_compute_health_check" "default" {
-  name               = "apache-health-check"
+  name               = "apache-health-check-v2"
   check_interval_sec = 5
   timeout_sec        = 5
 
@@ -99,7 +99,7 @@ resource "google_compute_health_check" "default" {
 }
 
 resource "google_compute_instance_group" "apache" {
-  name      = "apache-instance-group"
+  name      = "apache-instance-group-v2"
   zone      = var.zone
   instances = [google_compute_instance.apache.id]
 
@@ -110,7 +110,7 @@ resource "google_compute_instance_group" "apache" {
 }
 
 resource "google_compute_backend_service" "default" {
-  name          = "apache-backend"
+  name          = "apache-backend-v2"
   health_checks = [google_compute_health_check.default.id]
   port_name     = "http"
   protocol      = "HTTP"
@@ -122,17 +122,17 @@ resource "google_compute_backend_service" "default" {
 }
 
 resource "google_compute_url_map" "default" {
-  name            = "apache-url-map"
+  name            = "apache-url-map-v2"
   default_service = google_compute_backend_service.default.id
 }
 
 resource "google_compute_target_http_proxy" "default" {
-  name    = "apache-http-proxy"
+  name    = "apache-http-proxy-v2"
   url_map = google_compute_url_map.default.id
 }
 
 resource "google_compute_global_forwarding_rule" "default" {
-  name       = "apache-forwarding-rule"
+  name       = "apache-forwarding-rule-v2"
   target     = google_compute_target_http_proxy.default.id
   port_range = "80"
   ip_address = google_compute_global_address.default.id
