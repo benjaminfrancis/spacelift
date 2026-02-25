@@ -8,6 +8,22 @@ provider "google" {
   zone    = var.zone
 }
 
+# Enable required APIs
+resource "google_project_service" "compute" {
+  service            = "compute.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "iap" {
+  service            = "iap.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "secretmanager" {
+  service            = "secretmanager.googleapis.com"
+  disable_on_destroy = false
+}
+
 # Generate SSH key pair for Ansible access
 resource "tls_private_key" "ansible_key" {
   algorithm = "RSA"
@@ -21,6 +37,8 @@ resource "google_secret_manager_secret" "ansible_private_key" {
   replication {
     auto {}
   }
+
+  depends_on = [google_project_service.secretmanager]
 }
 
 resource "google_secret_manager_secret_version" "ansible_private_key_version" {
@@ -32,6 +50,8 @@ resource "google_secret_manager_secret_version" "ansible_private_key_version" {
 resource "google_compute_network" "vpc_network" {
   name                    = "ansible-demo-vpc"
   auto_create_subnetworks = false
+
+  depends_on = [google_project_service.compute]
 }
 
 # Create Subnet
@@ -42,9 +62,9 @@ resource "google_compute_subnetwork" "subnet" {
   network       = google_compute_network.vpc_network.id
 }
 
-# Firewall rule for SSH
-resource "google_compute_firewall" "allow_ssh" {
-  name    = "allow-ssh-ansible"
+# Firewall rule for IAP SSH (Identity-Aware Proxy)
+resource "google_compute_firewall" "allow_iap_ssh" {
+  name    = "allow-iap-ssh-ansible"
   network = google_compute_network.vpc_network.id
 
   allow {
@@ -52,7 +72,8 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["0.0.0.0/0"]
+  # IAP's IP range for SSH tunneling
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["ansible-managed"]
 }
 
@@ -68,6 +89,27 @@ resource "google_compute_firewall" "allow_http" {
 
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["http-server"]
+}
+
+# Cloud Router for NAT (required for internet access without external IP)
+resource "google_compute_router" "router" {
+  name    = "ansible-demo-router"
+  region  = var.region
+  network = google_compute_network.vpc_network.id
+}
+
+# Cloud NAT for outbound internet access (package downloads, updates)
+resource "google_compute_router_nat" "nat" {
+  name                               = "ansible-demo-nat"
+  router                             = google_compute_router.router.name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  log_config {
+    enable = true
+    filter = "ERRORS_ONLY"
+  }
 }
 
 # Compute Engine Instance (equivalent to EC2)
@@ -86,10 +128,8 @@ resource "google_compute_instance" "demo_instance" {
     network    = google_compute_network.vpc_network.id
     subnetwork = google_compute_subnetwork.subnet.id
     
-    # External IP for direct access (like AWS EC2)
-    access_config {
-      # Ephemeral IP
-    }
+    # No external IP - use IAP for SSH access
+    # access_config removed to comply with org policy constraints/compute.vmExternalIpAccess
   }
 
   # Add SSH public key to instance metadata
