@@ -1,0 +1,4 @@
+ansible>=2.9
+google-auth>=2.0.0
+requests>=2.25.0
+google-cloud-secret-manager>=2.0.0
