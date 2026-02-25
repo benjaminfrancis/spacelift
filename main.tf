@@ -95,27 +95,9 @@ resource "google_compute_firewall" "allow_http" {
   target_tags   = ["http-server"]
 }
 
-# Cloud Router for NAT (required for internet access without external IP)
-resource "google_compute_router" "router" {
-  name    = "ansible-spacelift-router"
-  region  = var.region
-  network = google_compute_network.vpc_network.id
-}
-
-# Cloud NAT for outbound internet access (package downloads, updates)
-resource "google_compute_router_nat" "nat" {
-  name   = "ansible-demo-nat"
-  router = google_compute_router.router.name
-  region = var.region
-
-  nat_ip_allocate_option             = "AUTO_ONLY"
-  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
-
-  log_config {
-    enable = true
-    filter = "ERRORS_ONLY"
-  }
-}
+# Note: Cloud NAT already exists in this project/region
+# The existing NAT configuration provides outbound internet access
+# for instances without external IPs (required for package downloads)
 
 # Compute Engine Instance (equivalent to EC2)
 resource "google_compute_instance" "demo_instance" {
@@ -156,3 +138,4 @@ resource "google_compute_instance" "demo_instance" {
     managed_by  = "ansible"
   }
 }
+
