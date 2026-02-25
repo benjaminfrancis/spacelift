@@ -1,0 +1,68 @@
+---
+- name: Configure Apache on Debian GCE Instance
+  hosts: all
+  become: yes
+  vars:
+    apache_pkg: apache2
+    web_root: /var/www/html
+  
+  tasks:
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Apache package
+      apt:
+        name: "{{ apache_pkg }}"
+        state: present
+
+    - name: Ensure Apache is running & enabled
+      service:
+        name: "{{ apache_pkg }}"
+        state: started
+        enabled: yes
+      when: not ansible_check_mode
+
+    - name: Deploy custom index.html
+      copy:
+        dest: "{{ web_root }}/index.html"
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Ansible + Terraform + Spacelift on GCP</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 50px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+              }
+              h1 { font-size: 3em; }
+              p { font-size: 1.5em; }
+            </style>
+          </head>
+          <body>
+            <h1>Hello from Ansible on GCP! 🚀</h1>
+            <p>Deployed via Spacelift</p>
+            <p>Infrastructure: Terraform | Configuration: Ansible</p>
+            <p>Instance: {{ ansible_hostname }}</p>
+          </body>
+          </html>
+        mode: '0644'
+      notify: restart apache
+
+    - name: Verify Apache is listening on port 80
+      wait_for:
+        port: 80
+        timeout: 10
+        state: started
+      when: not ansible_check_mode
+
+  handlers:
+    - name: restart apache
+      service:
+        name: "{{ apache_pkg }}"
+        state: restarted

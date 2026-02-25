@@ -1,0 +1,16 @@
+# GCP Compute Engine dynamic inventory for Ansible
+# This is the GCP equivalent of aws_ec2 plugin
+plugin: google.cloud.gcp_compute
+projects:
+  - "{{ lookup('env', 'GCP_PROJECT') }}"
+zones:
+  - us-central1-a
+filters:
+  - labels.managed_by = ansible
+  - status = RUNNING
+auth_kind: serviceaccount
+service_account_file: "{{ lookup('env', 'GOOGLE_APPLICATION_CREDENTIALS') }}"
+hostnames:
+  - public_ip
+compose:
+  ansible_host: networkInterfaces[0].accessConfigs[0].natIP
