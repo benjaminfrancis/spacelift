@@ -1,5 +1,5 @@
 # GCP Compute Engine dynamic inventory for Ansible
-# This is the GCP equivalent of aws_ec2 plugin
+# Uses IAP tunneling for SSH (no external IP required)
 plugin: google.cloud.gcp_compute
 projects:
   - "{{ lookup('env', 'GCP_PROJECT') }}"
@@ -11,6 +11,8 @@ filters:
 auth_kind: serviceaccount
 service_account_file: "{{ lookup('env', 'GOOGLE_APPLICATION_CREDENTIALS') }}"
 hostnames:
-  - public_ip
+  # Use instance name for IAP tunneling
+  - name
 compose:
-  ansible_host: networkInterfaces[0].accessConfigs[0].natIP
+  # IAP uses instance name, not IP
+  ansible_host: name
